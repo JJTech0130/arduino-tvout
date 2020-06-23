@@ -1,6 +1,6 @@
-# Arduino-TVout
+# Arduino-TVout-esp32
 
-# Hosted here to keep it available from Arduino IDE (and for simple download as the original Google Code has been archived).
+# This is a modified version of tvout that will work on the esp32. This is a wip and probably won't work wel for a long time.
 
 In order to use the library, place this library's folders (`TVout` and `TVoutfonts`) in your `libraries` folder.
 
