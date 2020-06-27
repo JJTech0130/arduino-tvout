@@ -84,8 +84,9 @@ char TVout::begin(uint8_t mode, uint8_t x, uint8_t y) {
 		
 	cursor_x = 0;
 	cursor_y = 0;
-	
-	render_setup(mode,x,y,screen);
+	hres = x;
+	vres = y;
+	CompositeOutput composite(CompositeOutput::NTSC, x * 2, y * 2);
 	clear_screen();
 	return 0;
 } // end of begin
@@ -111,18 +112,18 @@ void TVout::fill(uint8_t color) {
 		case BLACK:
 			cursor_x = 0;
 			cursor_y = 0;
-			for (int i = 0; i < (display.hres)*display.vres; i++)
-				display.screen[i] = 0;
+			for (int i = 0; i < (hres)*vres; i++)
+				screen[i] = 0;
 			break;
 		case WHITE:
 			cursor_x = 0;
 			cursor_y = 0;
-			for (int i = 0; i < (display.hres)*display.vres; i++)
-				display.screen[i] = 0xFF;
+			for (int i = 0; i < (hres)*vres; i++)
+				screen[i] = 0xFF;
 			break;
 		case INVERT:
-			for (int i = 0; i < display.hres*display.vres; i++)
-				display.screen[i] = ~display.screen[i];
+			for (int i = 0; i < hres*vres; i++)
+				screen[i] = ~screen[i];
 			break;
 	}
 } // end of fill
@@ -134,7 +135,7 @@ void TVout::fill(uint8_t color) {
  *	The horizontal resolution.
 */
 unsigned char TVout::hres() {
-	return display.hres*8;
+	return hres*8;
 } // end of hres
 
 
@@ -144,7 +145,7 @@ unsigned char TVout::hres() {
  *	The vertical resolution
 */
 unsigned char TVout::vres() {
-	return display.vres;
+	return vres;
 } // end of vres
 
 
@@ -155,7 +156,7 @@ unsigned char TVout::vres() {
  *	Will return -1 for dynamic width fonts as this cannot be determined.
 */
 char TVout::char_line() {
-	return ((display.hres*8)/pgm_read_byte(font));
+	return ((hres*8)/pgm_read_byte(font));
 } // end of char_line
 
 
@@ -180,7 +181,7 @@ void TVout::delay(unsigned int x) {
  *		The number of frames to delay for.
  */
 void TVout::delay_frame(unsigned int x) {
-	int stop_line = (int)(display.first_frame_start_render_line + (display.vres * (display.vscale_const + 1))) + 1;
+	int stop_line = (int)(display.first_frame_start_render_line + (vres * (display.vscale_const + 1))) + 1;
 	while (x) {
 		while (display.scanLine != stop_line);
 		while (display.scanLine == stop_line);
@@ -239,7 +240,7 @@ void TVout::force_outstart(uint8_t time) {
 void TVout::force_linestart(uint8_t line) {
 	delay_frame(1);
 	display.first_frame_start_render_line = line;
-	display.first_frame_end_render_line = display.first_frame_start_render_line + (display.vres * (display.vscale_const + 1));
+	display.first_frame_end_render_line = display.first_frame_start_render_line + (vres * (display.vscale_const + 1));
 	display.second_frame_start_render_line = display.lines_frame + display.first_frame_start_render_line;
 	display.second_frame_end_render_line = display.lines_frame + display.first_frame_end_render_line;
 }
@@ -257,7 +258,7 @@ void TVout::force_linestart(uint8_t line) {
  *		(see color note at the top of this file)
  */
 void TVout::set_pixel(uint8_t x, uint8_t y, char c) {
-	if (x >= display.hres*8 || y >= display.vres)
+	if (x >= hres*8 || y >= vres)
 		return;
 	sp(x,y,c);
 } // end of set_pixel
@@ -275,12 +276,12 @@ void TVout::set_pixel(uint8_t x, uint8_t y, char c) {
  *	The color of the pixel.
  *	(see color note at the top of this file)
  *
- * Thank you gijs on the arduino.cc forum for the non obviouse fix.
+ * Thank you gijs on the arduino.cc forum for the non obvious fix.
 */
 unsigned char TVout::get_pixel(uint8_t x, uint8_t y) {
-	if (x >= display.hres*8 || y >= display.vres)
+	if (x >= hres*8 || y >= vres)
 		return 0;
-	if (display.screen[x/8+y*display.hres] & (0x80 >>(x&7)))
+	if (screen[x/8+y*hres] & (0x80 >>(x&7)))
 		return 1;
 	return 0;
 } // end of get_pixel
@@ -304,7 +305,7 @@ unsigned char TVout::get_pixel(uint8_t x, uint8_t y) {
 /* Patched to allow support for the Arduino Leonardo */
 void TVout::draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, char c) {
 
-	if (x0 > display.hres*8 || y0 > display.vres || x1 > display.hres*8 || y1 > display.vres)
+	if (x0 > hres*8 || y0 > vres || x1 > hres*8 || y1 > vres)
 		return;
 	if (x0 == x1)
 		draw_column(x0,y0,y1,c);
@@ -400,9 +401,9 @@ void TVout::draw_row(uint8_t line, uint16_t x0, uint16_t x1, uint8_t c) {
 			x1 = lbit;
 		}
 		lbit = 0xff >> (x0&7);
-		x0 = x0/8 + display.hres*line;
+		x0 = x0/8 + hres*line;
 		rbit = ~(0xff >> (x1&7));
-		x1 = x1/8 + display.hres*line;
+		x1 = x1/8 + hres*line;
 		if (x0 == x1) {
 			lbit = lbit & rbit;
 			rbit = 0;
@@ -456,25 +457,25 @@ void TVout::draw_column(uint8_t row, uint16_t y0, uint16_t y1, uint8_t c) {
 			y1 = bit;
 		}
 		bit = 0x80 >> (row&7);
-		byte = row/8 + y0*display.hres;
+		byte = row/8 + y0*hres;
 		if (c == WHITE) {
 			while ( y0 <= y1) {
 				screen[byte] |= bit;
-				byte += display.hres;
+				byte += hres;
 				y0++;
 			}
 		}
 		else if (c == BLACK) {
 			while ( y0 <= y1) {
 				screen[byte] &= ~bit;
-				byte += display.hres;
+				byte += hres;
 				y0++;
 			}
 		}
 		else if (c == INVERT) {
 			while ( y0 <= y1) {
 				screen[byte] ^= bit;
-				byte += display.hres;
+				byte += hres;
 				y0++;
 			}
 		}
@@ -633,7 +634,7 @@ void TVout::bitmap(uint8_t x, uint8_t y, const unsigned char * bmp,
 	}
 	
 	for (uint8_t l = 0; l < lines; l++) {
-		si = (y + l)*display.hres + x/8;
+		si = (y + l)*hres + x/8;
 		if (width == 1)
 			temp = 0xff >> rshift + xtra;
 		else
@@ -678,9 +679,9 @@ void TVout::shift(uint8_t distance, uint8_t direction) {
 	uint8_t tmp;
 	switch(direction) {
 		case UP:
-			dst = display.screen;
-			src = display.screen + distance*display.hres;
-			end = display.screen + display.vres*display.hres;
+			dst = screen;
+			src = screen + distance*hres;
+			end = screen + vres*hres;
 				
 			while (src <= end) {
 				*dst = *src;
@@ -690,9 +691,9 @@ void TVout::shift(uint8_t distance, uint8_t direction) {
 			}
 			break;
 		case DOWN:
-			dst = display.screen + display.vres*display.hres;
-			src = dst - distance*display.hres;
-			end = display.screen;
+			dst = screen + vres*hres;
+			src = dst - distance*hres;
+			end = screen;
 				
 			while (src >= end) {
 				*dst = *src;
@@ -704,10 +705,10 @@ void TVout::shift(uint8_t distance, uint8_t direction) {
 		case LEFT:
 			shift = distance & 7;
 			
-			for (uint8_t line = 0; line < display.vres; line++) {
-				dst = display.screen + display.hres*line;
+			for (uint8_t line = 0; line < vres; line++) {
+				dst = screen + hres*line;
 				src = dst + distance/8;
-				end = dst + display.hres-2;
+				end = dst + hres-2;
 				while (src <= end) {
 					tmp = 0;
 					tmp = *src << shift;
@@ -726,10 +727,10 @@ void TVout::shift(uint8_t distance, uint8_t direction) {
 		case RIGHT:
 			shift = distance & 7;
 			
-			for (uint8_t line = 0; line < display.vres; line++) {
-				dst = display.screen + display.hres-1 + display.hres*line;
+			for (uint8_t line = 0; line < vres; line++) {
+				dst = screen + hres-1 + hres*line;
 				src = dst - distance/8;
-				end = dst - display.hres+2;
+				end = dst - hres+2;
 				while (src >= end) {
 					tmp = 0;
 					tmp = *src >> shift;
@@ -754,11 +755,11 @@ void TVout::shift(uint8_t distance, uint8_t direction) {
 */
 static void inline sp(uint8_t x, uint8_t y, char c) {
 	if (c==1)
-		display.screen[(x/8) + (y*display.hres)] |= 0x80 >> (x&7);
+		screen[(x/8) + (y*hres)] |= 0x80 >> (x&7);
 	else if (c==0)
-		display.screen[(x/8) + (y*display.hres)] &= ~0x80 >> (x&7);
+		screen[(x/8) + (y*hres)] &= ~0x80 >> (x&7);
 	else
-		display.screen[(x/8) + (y*display.hres)] ^= 0x80 >> (x&7);
+		screen[(x/8) + (y*hres)] ^= 0x80 >> (x&7);
 } // end of sp
 
 
@@ -785,101 +786,3 @@ void TVout::set_vbi_hook(void (*func)()) {
 void TVout::set_hbi_hook(void (*func)()) {
 	hbi_hook = func;
 } // end of set_bhi_hook
-
-
-/* Simple tone generation
- *
- * Arguments:
- *	frequency:
- *		the frequency of the tone
- * courtesy of adamwwolf
- */
-void TVout::tone(unsigned int frequency) {
-	tone(frequency, 0);
-} // end of tone
-
-
-/* Simple tone generation
- *
- * Arguments:
- *	frequency:
- *		the frequency of the tone
- *	duration_ms:
- *		The duration to play the tone in ms
- * courtesy of adamwwolf
- */
-void TVout::tone(unsigned int frequency, unsigned long duration_ms) {
-
-	if (frequency == 0)
-		return;
-
-#if defined(__AVR_ATmega32U4__)
-#define TIMER 0
-#else
-#define TIMER 2
-#endif
-	//this is init code
-	TCCR2A = 0;
-	TCCR2B = 0;
-	TCCR2A |= _BV(WGM21);
-	TCCR2B |= _BV(CS20);
-	//end init code
-
-	//most of this is taken from Tone.cpp from Arduino
-	uint8_t prescalarbits = 0b001;
-	uint32_t ocr = 0;
-  
-
-    DDR_SND |= _BV(SND_PIN); //set pb3 (digital pin 11) to output
-
-    //we are using an 8 bit timer, scan through prescalars to find the best fit
-	ocr = F_CPU / frequency / 2 - 1;
-    prescalarbits = 0b001;  // ck/1: same for both timers
-    if (ocr > 255) {
-        ocr = F_CPU / frequency / 2 / 8 - 1;
-        prescalarbits = 0b010;  // ck/8: same for both timers
-
-        if (ocr > 255) {
-			ocr = F_CPU / frequency / 2 / 32 - 1;
-			prescalarbits = 0b011;
-        }
-
-        if (ocr > 255) {
-			ocr = F_CPU / frequency / 2 / 64 - 1;
-			prescalarbits = TIMER == 0 ? 0b011 : 0b100;
-			if (ocr > 255) {
-				ocr = F_CPU / frequency / 2 / 128 - 1;
-				prescalarbits = 0b101;
-			}
-
-			if (ocr > 255) {
-				ocr = F_CPU / frequency / 2 / 256 - 1;
-				prescalarbits = TIMER == 0 ? 0b100 : 0b110;
-				if (ocr > 255) {
-					// can't do any better than /1024
-					ocr = F_CPU / frequency / 2 / 1024 - 1;
-					prescalarbits = TIMER == 0 ? 0b101 : 0b111;
-				}
-			}
-        }
-    }
-    TCCR2B = prescalarbits;
-
-	if (duration_ms > 0)
-		remainingToneVsyncs = duration_ms*60/1000; //60 here represents the framerate
-	else
-		remainingToneVsyncs = -1;
- 
-    // Set the OCR for the given timer,
-    OCR2A = ocr;
-    //set it to toggle the pin by itself
-    TCCR2A &= ~(_BV(COM2A1)); //set COM2A1 to 0
-    TCCR2A |= _BV(COM2A0);
-} // end of tone
-
-/* Stops tone generation
- */
-void TVout::noTone() {
-	TCCR2B = 0;
-	PORT_SND &= ~(_BV(SND_PIN)); //set pin 11 to 0
-} // end of noTone

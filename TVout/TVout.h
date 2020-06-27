@@ -31,15 +31,8 @@ application as possible.
 #ifndef TVOUT_H
 #define TVOUT_H
 
-#include <stdint.h>
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <avr/interrupt.h>
-#include <stdlib.h>
+#include "CompositeOutput.h"
 
-#include "video_gen.h"
-#include "spec/hardware_setup.h"
-#include "spec/video_properties.h"
 
 // macros for readability when selecting mode.
 #define PAL						1
@@ -159,6 +152,8 @@ private:
 	void inc_txtline();
     void printNumber(unsigned long, uint8_t);
     void printFloat(double, uint8_t);
+	uint8_t hres;
+	uint8_t vres;
 };
 
 static void inline sp(unsigned char x, unsigned char y, char c); 
